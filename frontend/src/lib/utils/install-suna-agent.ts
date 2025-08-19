@@ -3,10 +3,10 @@
 async function installSunaForNewUser(userId: string) {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-    const adminApiKey = process.env.KORTIX_ADMIN_API_KEY;
+    const adminApiKey = process.env.APNAAI_ADMIN_API_KEY;
     
     if (!adminApiKey) {
-      console.error('KORTIX_ADMIN_API_KEY not configured - cannot install Suna agent');
+      console.error('APNAAI_ADMIN_API_KEY not configured - cannot install Suna agent');
       return;
     }
   

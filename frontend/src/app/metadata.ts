@@ -4,14 +4,14 @@ import { siteConfig } from '@/lib/site';
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
-  keywords: ['Kortix Suna', 'Kortix', 'Suna', 'AI', 'Agent', 'Open Source'],
+  keywords: ['ApnaAI Suna', 'ApnaAI', 'Suna', 'AI', 'Agent', 'Open Source'],
   authors: [
     {
-      name: 'Kortix AI Corp',
-      url: 'https://kortix.ai',
+      name: 'ApnaAI Corp',
+      url: 'https://apnaai.ai',
     },
   ],
-  creator: 'Kortix AI Corp',
+  creator: 'ApnaAI Corp',
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: siteConfig.name,
     description: siteConfig.description,
-    creator: '@kortixai',
+    creator: '@apnaai',
   },
   robots: {
     index: true,

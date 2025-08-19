@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@/components/home/theme-provider';
 import { siteConfig } from '@/lib/site';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/sonner';
@@ -12,13 +12,8 @@ import Script from 'next/script';
 import { PostHogIdentify } from '@/components/posthog-identify';
 import '@/lib/polyfills'; // Load polyfills early
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -33,7 +28,7 @@ export const metadata: Metadata = {
     template: `%s - ${siteConfig.name}`,
   },
   description:
-    'Kortix is a fully open source AI assistant that helps you accomplish real-world tasks with ease. Through natural conversation, Kortix becomes your digital companion for research, data analysis, and everyday challenges.',
+    'ApnaAI is a fully open source AI assistant that helps you accomplish real-world tasks with ease. Through natural conversation, ApnaAI becomes your digital companion for research, data analysis, and everyday challenges.',
   keywords: [
     'AI',
     'artificial intelligence',
@@ -45,11 +40,11 @@ export const metadata: Metadata = {
     'research',
     'data analysis',
   ],
-  authors: [{ name: 'Kortix Team', url: 'https://suna.so' }],
+  authors: [{ name: 'ApnaAI Team', url: 'https://suna.so' }],
   creator:
-    'Kortix Team',
+    'ApnaAI Team',
   publisher:
-    'Kortix Team',
+    'ApnaAI Team',
   category: 'Technology',
   applicationName: 'Suna',
   formatDetection: {
@@ -88,8 +83,8 @@ export const metadata: Metadata = {
     title: 'Suna - Open Source Generalist AI Worker',
     description:
       'Suna is a fully open source AI assistant that helps you accomplish real-world tasks with ease through natural conversation.',
-    creator: '@kortixai',
-    site: '@kortixai',
+    creator: '@apnaai',
+    site: '@apnaai',
     images: [
       {
         url: '/banner.png',
@@ -129,7 +124,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans bg-background`}
+        className={`${inter.variable} antialiased font-sans bg-background`}
       >
         <noscript>
           <iframe

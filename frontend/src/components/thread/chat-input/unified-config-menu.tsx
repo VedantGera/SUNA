@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink } from 'lucide-react';
 import { useAgents } from '@/hooks/react-query/agents/use-agents';
-import { KortixLogo } from '@/components/sidebar/kortix-logo';
+import { ApnaaiLogo } from '@/components/sidebar/apnaai-logo';
 import type { ModelOption, SubscriptionStatus } from './_use-model-selection';
 import { MODELS } from './_use-model-selection';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -359,7 +359,7 @@ const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
                         >
                             <div className="flex items-center gap-2 max-w-[160px]">
                                 <div className="flex-shrink-0">
-                                    <KortixLogo size={16} />
+                                    <ApnaaiLogo size={16} />
                                 </div>
                                 <span className="truncate text-sm">Suna</span>
                                 <ChevronDown size={12} className="opacity-60" />

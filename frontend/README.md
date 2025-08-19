@@ -1,4 +1,4 @@
-# Kortix Frontend
+# ApnaAI Frontend
 
 ## Quick Setup
 

@@ -1,11 +1,11 @@
 export const siteConfig = {
-  name: 'Kortix Suna',
+  name: 'ApnaAI Suna',
   url: 'https://suna.so/',
-  description: 'Kortix AI',
+  description: 'ApnaAI',
   links: {
-    twitter: 'https://x.com/kortixai',
-    github: 'https://github.com/kortix-ai/',
-    linkedin: 'https://www.linkedin.com/company/kortix/',
+    twitter: 'https://x.com/apnaai',
+    github: 'https://github.com/apnaai/',
+    linkedin: 'https://www.linkedin.com/company/apnaai/',
   },
 };
 
