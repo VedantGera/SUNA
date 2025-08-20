@@ -281,17 +281,14 @@ async def create_stripe_customer(client, user_id: str, email: str) -> str:
 async def get_user_subscription(user_id: str) -> Optional[Dict]:
     """Get the current subscription for a user from Stripe."""
     try:
-        result = await Cache.get(f"user_subscription:{user_id}")
-        if result:
-            return result
-
         # Get customer ID
         db = DBConnection()
         client = await db.client
+        
+        # Get customer ID
         customer_id = await get_stripe_customer_id(client, user_id)
         
         if not customer_id:
-            await Cache.set(f"user_subscription:{user_id}", None, ttl=1 * 60)
             return None
             
         # Get all active subscriptions for the customer
@@ -303,7 +300,6 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
         
         # Check if we have any subscriptions
         if not subscriptions or not subscriptions.get('data'):
-            await Cache.set(f"user_subscription:{user_id}", None, ttl=1 * 60)
             return None
             
         # Filter subscriptions to only include our product's subscriptions
@@ -330,7 +326,6 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
                     our_subscriptions.append(sub)
         
         if not our_subscriptions:
-            await Cache.set(f"user_subscription:{user_id}", None, ttl=1 * 60)
             return None
             
         # If there are multiple active subscriptions, we need to handle this
@@ -355,7 +350,6 @@ async def get_user_subscription(user_id: str) -> Optional[Dict]:
             return most_recent
 
         result = our_subscriptions[0]
-        await Cache.set(f"user_subscription:{user_id}", result, ttl=1 * 60)
         return result
         
     except Exception as e:
@@ -1459,107 +1453,118 @@ async def create_portal_session(
         logger.error(f"Error creating portal session: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/subscription")
+@router.get("/subscription", response_model=SubscriptionStatus)
 async def get_subscription(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
-):
-    """Get the current subscription status for the current user, including scheduled changes and credit balance."""
-    try:
-        # Get subscription from Stripe (this helper already handles filtering/cleanup)
-        subscription = await get_user_subscription(current_user_id)
-        # print("Subscription data for status:", subscription)
-        
-        # Calculate current usage
-        db = DBConnection()
-        client = await db.client
-        current_usage = await calculate_monthly_usage(client, current_user_id)
-        
-        # Get credit balance
-        credit_balance_info = await get_user_credit_balance(client, current_user_id)
+) -> SubscriptionStatus:
+    """Get the subscription status for the current user."""
+    if config.ENV_MODE == EnvMode.LOCAL:
+        return SubscriptionStatus(
+            status='active',
+            plan_name='Local Development',
+            price_id='local_dev',
+            current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+            cancel_at_period_end=False,
+            minutes_limit=999999,
+            cost_limit=999999,
+            current_usage=0,
+            credit_balance=999999,
+            can_purchase_credits=True
+        )
 
-        if not subscription:
-            # Default to free tier status if no active subscription for our product
-            free_tier_id = config.STRIPE_FREE_TIER_ID
-            free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
-            return SubscriptionStatus(
-                status="no_subscription",
-                plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
-                price_id=free_tier_id,
-                minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
-                cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
-                current_usage=current_usage,
-                credit_balance=credit_balance_info.balance_dollars,
-                can_purchase_credits=credit_balance_info.can_purchase_credits
-            )
-        
-        # Extract current plan details
-        current_item = subscription['items']['data'][0]
-        current_price_id = current_item['price']['id']
-        current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
-        if not current_tier_info:
-            # Fallback if somehow subscribed to an unknown price within our product
-            logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
-            current_tier_info = {'name': 'unknown', 'minutes': 0}
-        
-        status_response = SubscriptionStatus(
-            status=subscription['status'], # 'active', 'trialing', etc.
-            plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
-            price_id=current_price_id,
-            current_period_end=datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc),
-            cancel_at_period_end=subscription['cancel_at_period_end'],
-            trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
-            minutes_limit=current_tier_info['minutes'],
-            cost_limit=current_tier_info['cost'],
+    subscription = None
+    db = DBConnection()
+    client = await db.client
+    
+    # Get subscription from Stripe (this helper already handles filtering/cleanup)
+    subscription = await get_user_subscription(current_user_id)
+    # print("Subscription data for status:", subscription)
+    
+    # Calculate current usage
+    current_usage = await calculate_monthly_usage(client, current_user_id)
+    
+    # Get credit balance
+    credit_balance_info = await get_user_credit_balance(client, current_user_id)
+
+    if not subscription:
+        # Default to free tier status if no active subscription for our product
+        free_tier_id = config.STRIPE_FREE_TIER_ID
+        free_tier_info = SUBSCRIPTION_TIERS.get(free_tier_id)
+        return SubscriptionStatus(
+            status="no_subscription",
+            plan_name=free_tier_info.get('name', 'free') if free_tier_info else 'free',
+            price_id=free_tier_id,
+            minutes_limit=free_tier_info.get('minutes') if free_tier_info else 0,
+            cost_limit=free_tier_info.get('cost') if free_tier_info else 0,
             current_usage=current_usage,
-            has_schedule=False, # Default
-            subscription_id=subscription['id'],
-            subscription={
-                'id': subscription['id'],
-                'status': subscription['status'],
-                'cancel_at_period_end': subscription['cancel_at_period_end'],
-                'cancel_at': subscription.get('cancel_at'),
-                'current_period_end': current_item['current_period_end']
-            },
             credit_balance=credit_balance_info.balance_dollars,
             can_purchase_credits=credit_balance_info.can_purchase_credits
         )
+    
+    # Extract current plan details
+    current_item = subscription['items']['data'][0]
+    current_price_id = current_item['price']['id']
+    current_tier_info = SUBSCRIPTION_TIERS.get(current_price_id)
+    if not current_tier_info:
+        # Fallback if somehow subscribed to an unknown price within our product
+        logger.warning(f"User {current_user_id} subscribed to unknown price {current_price_id}. Defaulting info.")
+        current_tier_info = {'name': 'unknown', 'minutes': 0}
+    
+    status_response = SubscriptionStatus(
+        status=subscription['status'], # 'active', 'trialing', etc.
+        plan_name=subscription['plan'].get('nickname') or current_tier_info['name'],
+        price_id=current_price_id,
+        current_period_end=datetime.fromtimestamp(current_item['current_period_end'], tz=timezone.utc),
+        cancel_at_period_end=subscription['cancel_at_period_end'],
+        trial_end=datetime.fromtimestamp(subscription['trial_end'], tz=timezone.utc) if subscription.get('trial_end') else None,
+        minutes_limit=current_tier_info['minutes'],
+        cost_limit=current_tier_info['cost'],
+        current_usage=current_usage,
+        has_schedule=False, # Default
+        subscription_id=subscription['id'],
+        subscription={
+            'id': subscription['id'],
+            'status': subscription['status'],
+            'cancel_at_period_end': subscription['cancel_at_period_end'],
+            'cancel_at': subscription.get('cancel_at'),
+            'current_period_end': current_item['current_period_end']
+        },
+        credit_balance=credit_balance_info.balance_dollars,
+        can_purchase_credits=credit_balance_info.can_purchase_credits
+    )
 
-        # Check for an attached schedule (indicates pending downgrade)
-        schedule_id = subscription.get('schedule')
-        if schedule_id:
-            try:
-                schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
-                # Find the *next* phase after the current one
-                next_phase = None
-                current_phase_end = current_item['current_period_end']
+    # Check for an attached schedule (indicates pending downgrade)
+    schedule_id = subscription.get('schedule')
+    if schedule_id:
+        try:
+            schedule = await stripe.SubscriptionSchedule.retrieve_async(schedule_id)
+            # Find the *next* phase after the current one
+            next_phase = None
+            current_phase_end = current_item['current_period_end']
+            
+            for phase in schedule.get('phases', []):
+                # Check if this phase starts exactly when the current one ends
+                if phase.get('start_date') == current_phase_end:
+                    next_phase = phase
+                    break # Found the immediate next phase
+
+            if next_phase:
+                scheduled_item = next_phase['items'][0] # Assuming single item
+                scheduled_price_id = scheduled_item['price'] # Price ID might be string here
+                scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id)
                 
-                for phase in schedule.get('phases', []):
-                    # Check if this phase starts exactly when the current one ends
-                    if phase.get('start_date') == current_phase_end:
-                        next_phase = phase
-                        break # Found the immediate next phase
+                status_response.has_schedule = True
+                status_response.status = 'scheduled_downgrade' # Override status
+                status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown') if scheduled_tier_info else 'unknown'
+                status_response.scheduled_price_id = scheduled_price_id
+                status_response.scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
+                
+        except Exception as schedule_error:
+            logger.error(f"Error retrieving or parsing schedule {schedule_id} for sub {subscription['id']}: {schedule_error}")
+            # Proceed without schedule info if retrieval fails
 
-                if next_phase:
-                    scheduled_item = next_phase['items'][0] # Assuming single item
-                    scheduled_price_id = scheduled_item['price'] # Price ID might be string here
-                    scheduled_tier_info = SUBSCRIPTION_TIERS.get(scheduled_price_id)
-                    
-                    status_response.has_schedule = True
-                    status_response.status = 'scheduled_downgrade' # Override status
-                    status_response.scheduled_plan_name = scheduled_tier_info.get('name', 'unknown') if scheduled_tier_info else 'unknown'
-                    status_response.scheduled_price_id = scheduled_price_id
-                    status_response.scheduled_change_date = datetime.fromtimestamp(next_phase['start_date'], tz=timezone.utc)
-                    
-            except Exception as schedule_error:
-                logger.error(f"Error retrieving or parsing schedule {schedule_id} for sub {subscription['id']}: {schedule_error}")
-                # Proceed without schedule info if retrieval fails
-
-        return status_response
+    return status_response
         
-    except Exception as e:
-        logger.exception(f"Error getting subscription status for user {current_user_id}: {str(e)}") # Use logger.exception
-        raise HTTPException(status_code=500, detail="Error retrieving subscription status.")
-
 @router.get("/check-status")
 async def check_status(
     current_user_id: str = Depends(get_current_user_id_from_jwt)
@@ -1891,7 +1896,7 @@ async def get_available_models(
                     if input_cost_per_token is not None and output_cost_per_token is not None:
                         pricing_info = {
                             "input_cost_per_million_tokens": input_cost_per_token * TOKEN_PRICE_MULTIPLIER,
-                            "output_cost_per_million_tokens": output_cost_per_million * TOKEN_PRICE_MULTIPLIER,
+                            "output_cost_per_million_tokens": output_cost_per_token * TOKEN_PRICE_MULTIPLIER,
                             "max_tokens": None  # cost_per_token doesn't provide max_tokens info
                         }
                     else:
