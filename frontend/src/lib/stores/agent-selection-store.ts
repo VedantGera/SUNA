@@ -61,6 +61,12 @@ export const useAgentSelectionStore = create<AgentSelectionState>()(
           }
         }
 
+        // If no agents exist, clear the selection to prevent 404 errors
+        if (agents.length === 0) {
+          set({ selectedAgentId: undefined, hasInitialized: true });
+          return;
+        }
+
         if (selectedId) {
           set({ selectedAgentId: selectedId });
         }

@@ -10,6 +10,21 @@ from services import redis
 
 logger = logging.getLogger(__name__)
 
+# Default flags defined in the code
+DEFAULT_FLAGS = {
+    "custom_agents": True,
+    "agent_marketplace": True,
+    "mcp_module": True,
+    "templates_api": True,
+    "triggers_api": True,
+    "agent_triggers": True,  # Add missing agent triggers flag
+    "workflows_api": True,
+    "knowledge_base": True,
+    "pipedream": True,
+    "credentials_api": True,
+    "suna_default_agent": True,
+}
+
 class FeatureFlagManager:
     def __init__(self):
         """Initialize with existing Redis service"""
@@ -38,16 +53,23 @@ class FeatureFlagManager:
             return False
     
     async def is_enabled(self, key: str) -> bool:
-        """Check if a feature flag is enabled"""
+        """Check if a feature flag is enabled. Checks Redis first, then falls back to hardcoded defaults."""
         try:
             flag_key = f"{self.flag_prefix}{key}"
             redis_client = await redis.get_client()
-            enabled = await redis_client.hget(flag_key, 'enabled')
-            return enabled == 'true' if enabled else False
+            
+            # Check if the hash exists
+            if await redis_client.exists(flag_key):
+                enabled = await redis_client.hget(flag_key, 'enabled')
+                # If enabled field exists, return its boolean value, otherwise false
+                return enabled == 'true'
+
+            # Fallback to hardcoded default if not in Redis
+            return DEFAULT_FLAGS.get(key, False)
         except Exception as e:
             logger.error(f"Failed to check feature flag {key}: {e}")
-            # Return False by default if Redis is unavailable
-            return False
+            # Fallback to default on error
+            return DEFAULT_FLAGS.get(key, False)
     
     async def get_flag(self, key: str) -> Optional[Dict[str, str]]:
         """Get feature flag details"""
@@ -148,10 +170,13 @@ async def get_flag_details(key: str) -> Optional[Dict[str, str]]:
     return await get_flag_manager().get_flag(key)
 
 
-# Feature Flags
+# Feature Flags (kept for reference, but DEFAULT_FLAGS is the source of truth for defaults)
 
 # Custom agents feature flag
 custom_agents = True
+
+# Agent marketplace feature flag
+agent_marketplace = True
 
 # MCP module feature flag  
 mcp_module = True
@@ -176,6 +201,3 @@ credentials_api = True
 
 # Suna default agent feature flag
 suna_default_agent = True
-
-
-

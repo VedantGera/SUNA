@@ -179,7 +179,7 @@ export function HeroSection() {
       formData.append('prompt', message);
 
       // Add selected agent if one is chosen
-      if (selectedAgentId) {
+      if (selectedAgentId && agents.some(agent => agent.agent_id === selectedAgentId)) {
         formData.append('agent_id', selectedAgentId);
       }
 

@@ -184,7 +184,10 @@ export const AgentPreview = ({ agent, agentMetadata }: AgentPreviewProps) => {
 
       const formData = new FormData();
       formData.append('prompt', message);
-      formData.append('agent_id', agent.agent_id);
+      // Only send agent_id if the agent exists
+      if (agent?.agent_id) {
+        formData.append('agent_id', agent.agent_id);
+      }
 
       files.forEach((file, index) => {
         const normalizedName = normalizeFilenameToNFC(file.name);
